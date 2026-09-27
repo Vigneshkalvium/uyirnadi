@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.token.role == 'admin'; }
+    function isDoctor() { return signedIn() && request.auth.token.role == 'doctor'; }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // Application reads and writes run through vetted Next.js server routes using
+    // the Admin SDK. Direct browser Firestore access is deliberately narrow.
+    match /users/{userId} {
+      allow read: if owns(userId) || isAdmin();
+      allow create: if owns(userId) && request.resource.data.role == 'user';
+      allow update: if owns(userId)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email;
+      allow delete: if false;
+
+      match /{privateCollection}/{document=**} {
+        allow read, write: if owns(userId);
+      }
+    }
+
+    match /doctors/{doctorId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+      match /availability/{slotId} {
+        allow read: if signedIn();
+        allow write: if isDoctor() && request.auth.uid == doctorId;
+      }
+    }
+    match /appointments/{appointmentId} {
+      allow read: if signedIn() && (isAdmin() || resource.data.userId == request.auth.uid || resource.data.doctorId == request.auth.uid);
+      allow write: if false; // booking uses an Admin SDK transaction in /api/appointments
+    }
+    match /healthTips/{tipId} {
+      allow read: if resource.data.published == true || isAdmin();
+      allow write: if isAdmin();
+    }
+    match /emergencyContacts/{contactId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,2 @@
+self.addEventListener('push',event=>{let payload={};try{payload=event.data.json();}catch{return;}const data=payload.data||{};event.waitUntil(self.registration.showNotification(data.title||'UyirNadi',{body:data.body||'You have a new care update. Open UyirNadi to view it.',icon:'/logo.jpeg',tag:data.tag||'uyirnadi',data:{url:'/dashboard'}}));});
+self.addEventListener('notificationclick',event=>{event.notification.close();event.waitUntil(clients.openWindow('/dashboard'));});

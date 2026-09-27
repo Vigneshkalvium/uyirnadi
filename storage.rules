@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function owner(userId) { return signedIn() && request.auth.uid == userId; }
+    function imageOrPdf() { return request.resource.contentType.matches('image/(jpeg|png)') || request.resource.contentType == 'application/pdf'; }
+    function smallFile() { return request.resource.size < 8 * 1024 * 1024; }
+
+    // Browsers do not upload directly in this MVP. The server validates the
+    // file signature, size and authorization before writing through Admin SDK.
+    match /users/{userId}/profile/{fileName} {
+      allow read: if owner(userId);
+      allow write: if owner(userId) && imageOrPdf() && smallFile();
+    }
+    match /users/{userId}/prescriptions/{fileName} {
+      allow read, write: if owner(userId) && imageOrPdf() && smallFile();
+    }
+    match /users/{userId}/health-reports/{fileName} {
+      allow read, write: if owner(userId) && imageOrPdf() && smallFile();
+    }
+    match /doctors/{doctorId}/prescriptions/{fileName} {
+      allow read, write: if owner(doctorId) && imageOrPdf() && smallFile();
+    }
+  }
+}

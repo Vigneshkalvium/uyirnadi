@@ -1,0 +1,17 @@
+{
+  "patients": [
+    { "name": "Ananya Sharma", "email": "ananya@example.com" },
+    { "name": "Rahul Nair", "email": "rahul@example.com" },
+    { "name": "Meera Iyer", "email": "meera@example.com" },
+    { "name": "Karthik Raj", "email": "karthik@example.com" }
+  ],
+  "doctors": [
+    { "name": "Dr. Kavya Menon", "email": "kavya@example.com", "specialization": "General Physician" },
+    { "name": "Dr. Vikram Shah", "email": "vikram@example.com", "specialization": "Cardiologist" },
+    { "name": "Dr. Nandita Rao", "email": "nandita@example.com", "specialization": "Nutritionist" }
+  ],
+  "admins": [
+    { "name": "Aditi Kapoor", "email": "aditi@example.com" },
+    { "name": "Sanjay Kumar", "email": "sanjay@example.com" }
+  ]
+}
