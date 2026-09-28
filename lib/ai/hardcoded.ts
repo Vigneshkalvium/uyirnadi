@@ -167,3 +167,44 @@ export const hardcodedPrescriptionResult: AIResult = {
     },
   ],
 };
+
+export const hardcodedReportResult: AIResult = {
+  summary:
+    "This is a prefilled sample wellness-report analysis for demonstrating the report screen. No information was read from your selected file, and this is not a medical result.",
+  interpretation:
+    "Sample values are shown only to demonstrate the layout. A real report needs its own verified test name, value, unit, reference range, clinical context, and qualified professional interpretation.",
+  observations: [
+    "Sample report type: wellness blood panel — illustrative data only.",
+    "The example values below do not belong to you and were not extracted from an uploaded document.",
+    "Reference ranges in this sample are labels for the demo only, not ranges from a clinical laboratory report.",
+  ],
+  nextSteps: [
+    "Use this screen to understand the report-review experience.",
+    "For a real report, keep the original document and discuss its values with a qualified clinician.",
+    "Do not make treatment or medicine changes from sample information.",
+  ],
+  doctorQuestions: [
+    "Which findings in my original report need follow-up?",
+    "What is the reference range shown by the laboratory that performed my test?",
+  ],
+  values: [
+    {
+      name: "Haemoglobin",
+      value: "13.8 g/dL — sample",
+      range: "Sample range only — not from a report",
+      flag: "Sample data",
+    },
+    {
+      name: "Vitamin D",
+      value: "24 ng/mL — sample",
+      range: "Sample range only — not from a report",
+      flag: "Sample data",
+    },
+    {
+      name: "Fasting glucose",
+      value: "92 mg/dL — sample",
+      range: "Sample range only — not from a report",
+      flag: "Sample data",
+    },
+  ],
+};

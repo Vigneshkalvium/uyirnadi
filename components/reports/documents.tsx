@@ -20,7 +20,10 @@ import { api, deleteRecord, saveRecord } from "@/lib/firestore/client";
 import { useRecords } from "@/hooks/use-records";
 import { dateLabel } from "@/lib/utils";
 import { AIResponse } from "@/components/health/ai-response";
-import { hardcodedPrescriptionResult } from "@/lib/ai/hardcoded";
+import {
+  hardcodedPrescriptionResult,
+  hardcodedReportResult,
+} from "@/lib/ai/hardcoded";
 import {
   Badge,
   Button,
@@ -58,6 +61,7 @@ export function Documents({
   const [removal, setRemoval] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string>();
   const [sampleExtraction, setSampleExtraction] = useState(false);
+  const [sampleReport, setSampleReport] = useState(false);
 
   useEffect(() => {
     if (!file) return setPreview("");
@@ -82,10 +86,21 @@ export function Documents({
     setError("");
     setSavedId(undefined);
     setSampleExtraction(false);
+    setSampleReport(false);
   }
 
   async function upload() {
     if (!file) return;
+    if (!prescription) {
+      setBusy("Preparing your sample report...");
+      setError("");
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      setResult(hardcodedReportResult);
+      setSampleReport(true);
+      setBusy("");
+      toast.success("Sample report analysis is ready. No file was uploaded.");
+      return;
+    }
     if (!firebaseConfigured)
       return setError(
         "Private uploads need a connected Firebase project. This file has not left your browser.",
@@ -165,6 +180,12 @@ export function Documents({
     setResult(hardcodedPrescriptionResult);
     setSampleExtraction(true);
     setConfirmed(false);
+    setError("");
+  }
+
+  function loadSampleReport() {
+    setResult(hardcodedReportResult);
+    setSampleReport(true);
     setError("");
   }
 
@@ -304,7 +325,7 @@ export function Documents({
               Try a hardcoded sample extraction
             </Button>
           )}
-          {file && !uploaded && (
+          {file && !uploaded && !sampleReport && (
             <Button
               className="mt-5 w-full"
               disabled={Boolean(busy)}
@@ -319,6 +340,24 @@ export function Documents({
                 </>
               )}
             </Button>
+          )}
+          {!prescription && !result && (
+            <Button
+              variant="outline"
+              className="mt-4 w-full"
+              disabled={Boolean(busy)}
+              onClick={loadSampleReport}
+            >
+              <Sparkles />
+              Preview a hardcoded sample report
+            </Button>
+          )}
+          {sampleReport && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+              <strong>Sample analysis shown.</strong> Your selected file was not
+              uploaded, stored, or read. This result uses hardcoded example
+              values only.
+            </div>
           )}
           {uploaded && (
             <>
@@ -460,7 +499,15 @@ export function Documents({
                 </Button>
               </>
             ) : (
-              <AIResponse result={result} />
+              <>
+                {sampleReport && (
+                  <div className="mb-5 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+                    Hardcoded sample report only. It is not an analysis of your
+                    uploaded document.
+                  </div>
+                )}
+                <AIResponse result={result} />
+              </>
             )
           ) : (
             <EmptyState
