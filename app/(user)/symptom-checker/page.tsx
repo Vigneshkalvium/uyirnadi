@@ -1,4 +1,4 @@
-import { AITool } from "@/components/health/ai-tools";
+import { SymptomChecker } from "@/components/health/symptom-checker";
 export default function Page() {
-  return <AITool kind="symptoms" />;
+  return <SymptomChecker />;
 }

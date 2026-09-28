@@ -273,7 +273,7 @@ async function main() {
     );
   }
 
-  for (const [index, doctor] of doctors.entries()) {
+  for (const doctor of doctors) {
     const doctorId = doctorIds.get(doctor.email)!;
     const root = firestore.doc(`doctors/${doctorId}`);
     write.set(
