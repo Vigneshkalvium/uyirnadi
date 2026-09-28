@@ -1,4 +1,4 @@
-import { AITool } from "@/components/health/ai-tools";
+import { NutritionPlanner } from "@/components/health/nutrition-planner";
 export default function Page() {
-  return <AITool kind="nutrition" />;
+  return <NutritionPlanner />;
 }
