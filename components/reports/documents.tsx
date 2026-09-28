@@ -20,6 +20,7 @@ import { api, deleteRecord, saveRecord } from "@/lib/firestore/client";
 import { useRecords } from "@/hooks/use-records";
 import { dateLabel } from "@/lib/utils";
 import { AIResponse } from "@/components/health/ai-response";
+import { hardcodedPrescriptionResult } from "@/lib/ai/hardcoded";
 import {
   Badge,
   Button,
@@ -43,7 +44,7 @@ export function Documents({
 }) {
   const collection = prescription ? "prescriptions" : "healthReports";
   const data = useRecords(collection);
-  const appointments = useRecords('appointments');
+  const appointments = useRecords("appointments");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [uploaded, setUploaded] = useState<Uploaded | null>(null);
@@ -56,6 +57,7 @@ export function Documents({
   const [view, setView] = useState<RecordData | null>(null);
   const [removal, setRemoval] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string>();
+  const [sampleExtraction, setSampleExtraction] = useState(false);
 
   useEffect(() => {
     if (!file) return setPreview("");
@@ -79,6 +81,7 @@ export function Documents({
     setConfirmed(false);
     setError("");
     setSavedId(undefined);
+    setSampleExtraction(false);
   }
 
   async function upload() {
@@ -99,7 +102,10 @@ export function Documents({
       });
       setUploaded(saved);
       if (!prescription) {
-        const record = await saveRecord('healthReports', {...saved,sharedWith:[]});
+        const record = await saveRecord("healthReports", {
+          ...saved,
+          sharedWith: [],
+        });
         setSavedId(record.id);
       }
       toast.success("Document uploaded to your private storage.");
@@ -111,6 +117,15 @@ export function Documents({
   }
 
   async function analyze() {
+    if (prescription) {
+      setBusy("Loading the sample extraction...");
+      setError("");
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      setResult(hardcodedPrescriptionResult);
+      setSampleExtraction(true);
+      setBusy("");
+      return;
+    }
     if (!uploaded || !consent) return;
     setBusy("Reading your document...");
     setError("");
@@ -130,11 +145,15 @@ export function Documents({
       );
       setResult(response.result);
       if (!prescription)
-        await saveRecord("healthReports", {
-          ...uploaded,
-          analysis: response.result,
-          sharedWith: [],
-        }, savedId);
+        await saveRecord(
+          "healthReports",
+          {
+            ...uploaded,
+            analysis: response.result,
+            sharedWith: [],
+          },
+          savedId,
+        );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Analysis failed.");
     } finally {
@@ -142,20 +161,43 @@ export function Documents({
     }
   }
 
+  function loadSampleExtraction() {
+    setResult(hardcodedPrescriptionResult);
+    setSampleExtraction(true);
+    setConfirmed(false);
+    setError("");
+  }
+
   async function savePrescription() {
-    if (!uploaded || !result?.medicines?.length || !confirmed) return;
-    if (result.medicines.some(m => !m.name.trim())) { toast.error('Enter a medicine name, or mark it as unclear.'); return; }
+    if (
+      (!uploaded && !sampleExtraction) ||
+      !result?.medicines?.length ||
+      !confirmed
+    )
+      return;
+    if (result.medicines.some((m) => !m.name.trim())) {
+      toast.error("Enter a medicine name, or mark it as unclear.");
+      return;
+    }
     setBusy("Saving your confirmation...");
     try {
       await saveRecord("prescriptions", {
-        ...uploaded,
+        ...(uploaded || {
+          name: "Prescription extraction sample — not a clinical record",
+        }),
         medicines: result.medicines,
         confirmed: true,
+        ...(sampleExtraction ? { sample: true } : {}),
       });
-      toast.success("Confirmed prescription saved.");
+      toast.success(
+        sampleExtraction
+          ? "Sample prescription saved to your workspace."
+          : "Confirmed prescription saved.",
+      );
       setFile(null);
       setUploaded(null);
       setResult(null);
+      setSampleExtraction(false);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -251,6 +293,17 @@ export function Documents({
             Your document is private. You decide whether it may be sent to the
             AI provider.
           </p>
+          {prescription && !result && (
+            <Button
+              variant="outline"
+              className="mt-4 w-full"
+              disabled={Boolean(busy)}
+              onClick={loadSampleExtraction}
+            >
+              <Sparkles />
+              Try a hardcoded sample extraction
+            </Button>
+          )}
           {file && !uploaded && (
             <Button
               className="mt-5 w-full"
@@ -280,8 +333,9 @@ export function Documents({
                   checked={consent}
                   onChange={(event) => setConsent(event.target.checked)}
                 />
-                I agree to send this document to Gemini for informational
-                analysis.
+                {prescription
+                  ? "I understand this view shows a hardcoded sample and does not read my uploaded document."
+                  : "I agree to send this document to Gemini for informational analysis."}
               </label>
               <Button
                 className="mt-4 w-full"
@@ -293,7 +347,7 @@ export function Documents({
                 ) : (
                   <>
                     <Sparkles />
-                    {prescription ? "Extract details" : "Analyze report"}
+                    {prescription ? "Show sample extraction" : "Analyze report"}
                   </>
                 )}
               </Button>
@@ -309,10 +363,15 @@ export function Documents({
           {result ? (
             prescription ? (
               <>
-                <h2>AI extracted information</h2>
+                <h2>
+                  {sampleExtraction
+                    ? "Hardcoded sample extraction"
+                    : "AI extracted information"}
+                </h2>
                 <p className="my-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-                  Please verify this information against the original
-                  prescription. OCR results are not medically verified.
+                  {sampleExtraction
+                    ? "This is a sample only. It was not read from your uploaded document. Replace every field with the exact wording from an original prescription before saving."
+                    : "Please verify this information against the original prescription. OCR results are not medically verified."}
                 </p>
                 <div className="space-y-3">
                   {result.medicines?.map((medicine, index) => (
@@ -332,11 +391,52 @@ export function Documents({
                           {medicine.confidence}
                         </Badge>
                       </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">{(['name','dosage','frequency','duration','instructions'] as const).map(key=><Field key={key} label={key.charAt(0).toUpperCase()+key.slice(1)} htmlFor={`medicine-${index}-${key}`}><Input id={`medicine-${index}-${key}`} value={medicine[key]} onChange={event=>{setConfirmed(false);setResult({...result,medicines:result.medicines!.map((value,i)=>i===index?{...value,[key]:event.target.value}:value)});}}/></Field>)}</div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {(
+                          [
+                            "name",
+                            "dosage",
+                            "frequency",
+                            "duration",
+                            "instructions",
+                          ] as const
+                        ).map((key) => (
+                          <Field
+                            key={key}
+                            label={key.charAt(0).toUpperCase() + key.slice(1)}
+                            htmlFor={`medicine-${index}-${key}`}
+                          >
+                            <Input
+                              id={`medicine-${index}-${key}`}
+                              value={medicine[key]}
+                              onChange={(event) => {
+                                setConfirmed(false);
+                                setResult({
+                                  ...result,
+                                  medicines: result.medicines!.map(
+                                    (value, i) =>
+                                      i === index
+                                        ? {
+                                            ...value,
+                                            [key]: event.target.value,
+                                          }
+                                        : value,
+                                  ),
+                                });
+                              }}
+                            />
+                          </Field>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
-                {!result.medicines?.length && <p role="status" className="my-4 text-sm text-amber-800">No readable medicines were found. Try a clearer image of the complete prescription; nothing has been saved.</p>}
+                {!result.medicines?.length && (
+                  <p role="status" className="my-4 text-sm text-amber-800">
+                    No readable medicines were found. Try a clearer image of the
+                    complete prescription; nothing has been saved.
+                  </p>
+                )}
                 <label className="mt-5 flex gap-2 text-xs">
                   <input
                     type="checkbox"
@@ -348,11 +448,15 @@ export function Documents({
                 </label>
                 <Button
                   className="mt-4"
-                  disabled={!confirmed || Boolean(busy) || !result.medicines?.length}
+                  disabled={
+                    !confirmed || Boolean(busy) || !result.medicines?.length
+                  }
                   onClick={savePrescription}
                 >
                   <Check />
-                  Save confirmed prescription
+                  {sampleExtraction
+                    ? "Save confirmed sample"
+                    : "Save confirmed prescription"}
                 </Button>
               </>
             ) : (
@@ -447,12 +551,78 @@ export function Documents({
         onOpenChange={() => setView(null)}
         title={String(view?.name || "Document")}
         description={
-          Boolean(view?.demo)
+          Boolean(view?.demo || view?.sample)
             ? "Sample document only."
             : "Your private health document."
         }
       >
-        {!prescription && view && <div className="mb-5 space-y-3 rounded-lg border border-border p-4"><h3>Share with your doctor</h3><p className="text-xs text-muted-foreground">Only doctors with confirmed appointments appear here.</p>{Array.from(new Map(appointments.records.filter(a=>['confirmed','completed'].includes(String(a.status))).map(a=>[String(a.doctorId),a])).values()).map(a=><label key={String(a.doctorId)} className="flex gap-2 text-xs"><input type="checkbox" checked={Array.isArray(view.sharedWith)&&view.sharedWith.includes(a.doctorId)} onChange={async event=>{const share=event.target.checked;try{await api('/api/reports/share',{method:'POST',body:JSON.stringify({reportId:view.id,doctorId:a.doctorId,share})});setView({...view,sharedWith:share?[...(Array.isArray(view.sharedWith)?view.sharedWith:[]),a.doctorId]:(Array.isArray(view.sharedWith)?view.sharedWith:[]).filter(id=>id!==a.doctorId)});await data.refresh();toast.success(share?'Report shared with doctor.':'Sharing removed.');}catch(e){toast.error(e instanceof Error?e.message:'Could not update sharing.');}}}/>{String(a.doctorName)}</label>)}</div>}
+        {!prescription && view && (
+          <div className="mb-5 space-y-3 rounded-lg border border-border p-4">
+            <h3>Share with your doctor</h3>
+            <p className="text-xs text-muted-foreground">
+              Only doctors with confirmed appointments appear here.
+            </p>
+            {Array.from(
+              new Map(
+                appointments.records
+                  .filter((a) =>
+                    ["confirmed", "completed"].includes(String(a.status)),
+                  )
+                  .map((a) => [String(a.doctorId), a]),
+              ).values(),
+            ).map((a) => (
+              <label key={String(a.doctorId)} className="flex gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={
+                    Array.isArray(view.sharedWith) &&
+                    view.sharedWith.includes(a.doctorId)
+                  }
+                  onChange={async (event) => {
+                    const share = event.target.checked;
+                    try {
+                      await api("/api/reports/share", {
+                        method: "POST",
+                        body: JSON.stringify({
+                          reportId: view.id,
+                          doctorId: a.doctorId,
+                          share,
+                        }),
+                      });
+                      setView({
+                        ...view,
+                        sharedWith: share
+                          ? [
+                              ...(Array.isArray(view.sharedWith)
+                                ? view.sharedWith
+                                : []),
+                              a.doctorId,
+                            ]
+                          : (Array.isArray(view.sharedWith)
+                              ? view.sharedWith
+                              : []
+                            ).filter((id) => id !== a.doctorId),
+                      });
+                      await data.refresh();
+                      toast.success(
+                        share
+                          ? "Report shared with doctor."
+                          : "Sharing removed.",
+                      );
+                    } catch (e) {
+                      toast.error(
+                        e instanceof Error
+                          ? e.message
+                          : "Could not update sharing.",
+                      );
+                    }
+                  }}
+                />
+                {String(a.doctorName)}
+              </label>
+            ))}
+          </div>
+        )}
         {Boolean(view?.storagePath) && (
           <Button asChild variant="outline" className="mb-5">
             <a
@@ -465,7 +635,27 @@ export function Documents({
             </a>
           </Button>
         )}
-        {Array.isArray(view?.medicines) ? <div className="space-y-3">{(view.medicines as NonNullable<AIResult['medicines']>).map((medicine,index)=><div key={index} className="rounded-lg border border-border p-4"><h3 className="font-semibold">{medicine.name}</h3><p className="mt-2 text-sm">{medicine.dosage} · {medicine.frequency} · {medicine.duration}</p><p className="mt-2 text-xs text-muted-foreground">{medicine.instructions}</p></div>)}</div> : view?.analysis ? (
+        {Array.isArray(view?.medicines) ? (
+          <div className="space-y-3">
+            {(view.medicines as NonNullable<AIResult["medicines"]>).map(
+              (medicine, index) => (
+                <div
+                  key={index}
+                  className="rounded-lg border border-border p-4"
+                >
+                  <h3 className="font-semibold">{medicine.name}</h3>
+                  <p className="mt-2 text-sm">
+                    {medicine.dosage} · {medicine.frequency} ·{" "}
+                    {medicine.duration}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {medicine.instructions}
+                  </p>
+                </div>
+              ),
+            )}
+          </div>
+        ) : view?.analysis ? (
           <AIResponse result={view.analysis as AIResult} />
         ) : (
           <EmptyState

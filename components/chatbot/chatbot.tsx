@@ -12,9 +12,9 @@ import {
 import { toast } from "sonner";
 import { useRecords } from "@/hooks/use-records";
 import { api, deleteRecord } from "@/lib/firestore/client";
-import { firebaseConfigured } from "@/lib/firebase/client";
 import { Button, Card, PageHeader, Modal, ErrorState } from "@/components/ui";
 import { AIResponse } from "@/components/health/ai-response";
+import { hardcodedHealthResponse } from "@/lib/ai/hardcoded";
 import type { AIResult, RecordData } from "@/types";
 type Message = {
   role: "user" | "assistant";
@@ -34,12 +34,6 @@ export function Chatbot() {
   async function send(text = input) {
     if (!text.trim() || busy) return;
     setError("");
-    if (!firebaseConfigured) {
-      setError(
-        "Connect Firebase and Gemini to start a private health conversation. Demo mode does not generate medical advice.",
-      );
-      return;
-    }
     setBusy(true);
     setMessages((old) => [
       ...old,
@@ -47,23 +41,15 @@ export function Chatbot() {
     ]);
     setInput("");
     try {
-      const data = await api<{ result: AIResult; conversationId: string }>(
-        "/api/ai/chat",
-        {
-          method: "POST",
-          body: JSON.stringify({ prompt: text, conversationId: id }),
-        },
-      );
-      setId(data.conversationId);
+      await new Promise((resolve) => setTimeout(resolve, 350));
       setMessages((old) => [
         ...old,
         {
           role: "assistant",
-          content: data.result,
+          content: hardcodedHealthResponse(text),
           createdAt: new Date().toISOString(),
         },
       ]);
-      await conversations.refresh();
       setTimeout(
         () =>
           bottom.current?.scrollIntoView({
@@ -72,8 +58,10 @@ export function Chatbot() {
           }),
         100,
       );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send your message.");
+    } catch {
+      setError(
+        "Could not prepare the informational response. Please try again.",
+      );
       setInput(text);
       setMessages((old) => old.slice(0, -1));
     } finally {
@@ -158,9 +146,7 @@ export function Chatbot() {
             <div>
               <p className="text-xs font-medium">UyirNadi assistant</p>
               <p className="mt-0.5 text-[9px] text-muted-foreground">
-                {firebaseConfigured
-                  ? "Private, informational health guidance"
-                  : "Preview · AI connection required"}
+                Hardcoded, informational health guidance
               </p>
             </div>
             <Button
@@ -213,8 +199,8 @@ export function Chatbot() {
                   A little clarity can go a long way.
                 </h2>
                 <p className="mt-3 max-w-sm text-xs leading-relaxed text-muted-foreground">
-                  From understanding a health term to preparing for your next
-                  appointment, you don’t have to figure it out alone.
+                  This prewritten guide can help you prepare for a check-up,
+                  understand a health term, and find the right UyirNadi tool.
                 </p>
                 <div className="mt-8 grid w-full gap-3 sm:grid-cols-2">
                   {[
@@ -280,7 +266,7 @@ export function Chatbot() {
               </Button>
             </form>
             <p className="text-center text-[9px] text-muted-foreground">
-              AI can make mistakes. Verify important information with your
+              Prewritten guidance only. It does not diagnose or replace a
               doctor. For emergencies, seek immediate help.
             </p>
           </div>
