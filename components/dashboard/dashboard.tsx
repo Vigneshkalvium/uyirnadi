@@ -12,7 +12,7 @@ import {
   Droplets,
   Footprints,
   MessageCircle,
-  ScanLine,
+  Tablets,
   Stethoscope,
   FileUp,
   Clock,
@@ -89,9 +89,9 @@ export function Dashboard() {
       color: "#ebf0e3",
     },
     {
-      label: "Read prescription",
-      href: "/prescription-reader",
-      icon: ScanLine,
+      label: "Tablet guide",
+      href: "/medicines",
+      icon: Tablets,
       color: "#f0ebf4",
     },
     {

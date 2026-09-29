@@ -9,7 +9,7 @@
 - Firebase email/password authentication, optional Google sign-in, server session cookies, role claims, protected routes and persistent sessions.
 - Personal dashboard; BMI, water, fitness and medicine trackers; nutrition plans; health tips; emergency contacts; feedback.
 - Appointment booking with Firestore transaction protection against double-booking. Doctors can publish slots and manage their schedule.
-- Private report and prescription upload, file-signature validation, server-side OCR abstraction powered by Gemini Vision, editable prescription extraction, and AI report summaries.
+- Private health-report upload, file-signature validation, server-side OCR abstraction powered by Gemini Vision, AI report summaries, and a searchable 50-medicine reference guide with general safety notes.
 - Gemini health assistant, symptom checker, nutrition planner and recommendations endpoint. Every response uses a safety system prompt and medical disclaimer.
 - Admin routes for providers, appointment oversight, health tips, feedback and emergency contacts.
 - In-app notifications plus optional Firebase Cloud Messaging registration for browsers that support it.
@@ -92,7 +92,7 @@ Documents only reach Gemini after a user explicitly opts in. The backend restric
 
 ## Data model
 
-Private user records are stored under `users/{uid}` subcollections: `healthReports`, `prescriptions`, `waterLogs`, `fitnessLogs`, `bmiRecords`, `nutritionPlans`, `conversations/messages`, and `notifications`. Shared platform collections include `doctors`, `appointments`, `healthTips`, `emergencyContacts` and `feedback`.
+Private user records are stored under `users/{uid}` subcollections: `healthReports`, `prescriptions`, `waterLogs`, `fitnessLogs`, `bmiRecords`, `nutritionPlans`, `conversations/messages`, and `notifications`. The patient-facing tablet guide is a built-in reference list and does not store a medicine record. Shared platform collections include `doctors`, `appointments`, `healthTips`, `emergencyContacts` and `feedback`.
 
 Health reports are private. A doctor can access a report only when the report explicitly lists that doctor in `sharedWith` and a confirmed/completed appointment relationship exists; the server checks both conditions in `/api/patients`.
 

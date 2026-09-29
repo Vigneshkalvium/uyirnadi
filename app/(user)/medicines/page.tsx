@@ -1,2 +1,5 @@
-import {redirect} from "next/navigation";
-export default function Page(){redirect("/prescription-reader");}
+import { TabletGuide } from "@/components/health/tablet-guide";
+
+export default function Page() {
+  return <TabletGuide />;
+}
